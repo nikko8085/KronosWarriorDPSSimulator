@@ -1,3 +1,5 @@
+Version 1.0
+
 First fully functional WarriorDPSSimulator for Kronos WoW Private Server.
 
 Goals for future version:
@@ -23,3 +25,5 @@ Missing Features:
 - Multiprocessing utilizing all cores
 - Code restructuring into more object oriented
 - Smarter function calls using fewer if-statements
+
+Github account: nikko8085
