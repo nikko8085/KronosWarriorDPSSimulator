@@ -1,9 +1,13 @@
-Version 1.1
+Version 1.1.1
 
 This DPS simulator tool will open a GUI guiding you through the set up process.
 
 Goals for future version:
 Speed up the process, fix (unknown) bugs, add weapon and gear features, allow pre-popping CDs.
+
+Changes from v1.1:
+- Fixed OH weapons swinging for their own damage, and not MH weapon damage.
+- Fixed OH weapon procs not being able to proc from MH swings
 
 Changes from v1.0:
 - Massive overhaul from global variables to object oriented programming

@@ -1,4 +1,6 @@
-# Version 1.1
+# Version 1.1.1 (in progress)
+
+# Goal: Add many (or all) keywords. Optimize Trinket Usage algorithm. Fix GUI issues. Add pre-popping CD's possibility.
 
 # Changes from v1.0:
 # - Massive overhaul from global variables
@@ -15,17 +17,22 @@
 # - Fixed Hand of Justice proc now dealing damage
 # - Added Perditions Blade with 3.9% proc rate
 
+# Changes from v1.1:
+# - Fixed OH Weapon swinging for its own damage, not MH weapon damage
+
 # Known Bugs: 
 # - Result window not closing when closing GUI
 # - Result window opening many times if closing GUI first
 # - GUI freezing on big calculations
 # - User-safeguards missing. (Wrong type inputs still allowed).
 # - GUI rescaling not possible
+# - 2H weapon speed normalization factor not 3.3
 
 # Missing features: 
 # - Pre-popping CDs
 # - Parallel Processing
 # - Optimization
+# - Not recalculating the damage reduction from mob armor at every hit
 
 # Missing keywords: 
 # - Diamond Flask
@@ -744,12 +751,6 @@ if __name__ == '__main__':
 	def SaveSettings():
 		gearlist = [val_Race.get(),val_Head.get(),val_Neck.get(),val_Shoulders.get(),val_Cloak.get(),val_Chest.get(),val_Wrist.get(),val_Gloves.get(),val_Belt.get(),val_Legs.get(),val_Boots.get(),val_Ring1.get(),val_Ring2.get(),val_Trinket1.get(),val_Trinket2.get(),val_Ranged.get(),val_HeadEnchant.get(),val_LegEnchant.get(),val_ShouldersEnchant.get(),val_MHWeaponEnchant.get(),val_OHWeaponEnchant.get(),val_CloakEnchant.get(),val_ChestEnchant.get(),val_WristEnchant.get(),val_GlovesEnchant.get(),val_BootsEnchant.get()]
 		weaponlist = [val_MHWeapon.get(),val_OHWeapon.get()]
-		# talentlist = [val_OHSpecializationTalent.get(),val_CritDamageTalent.get(),val_ImpHeroicStrike.get(),val_ExecuteTalent.get(),val_AngerManagement.get(),val_Cruelty.get(),val_ImprovedCleave.get()]
-		# consumablelist = [val_JujuMight.get(),val_JujuPower.get(),val_Mongoose.get(),val_Dumpling.get(),val_OHStone.get(),val_MHCritStone.get(),val_MHStone.get(),val_UseSapper.get(),val_UseRagePot.get(),val_UseJujuFlurry.get()]
-		# bufflist = [val_Zandalar.get(),val_Dragonslayer.get(),val_DMT.get(),val_DMF.get(),val_SilithusSand.get(),val_Songflower.get(),val_Kings.get(),val_BoM.get(),val_Trueshot.get(),val_MotW.get(),val_PackLeader.get(),val_GiftOfArthas.get(),val_Chicken.get(),val_Battleshout.get(),val_Sunders.get(),val_Annihilator.get(),val_FaerieFire.get(),val_CoR.get(),val_ZerkerStance.get()]
-		# abilitylist = [val_HeroicStrike.get(),val_Cleave.get(),val_Bloodthirst.get(),val_Whirlwind.get(),val_Hamstring.get(),val_Bloodrage.get(),val_Execute.get(),val_Deathwish.get(),val_Reckless.get()]
-		# simulationsettinglist = [val_Nreps.get(),val_fightduration.get(),val_executeduration.get(),val_NEnemies.get(),val_MobLevel.get(),val_PlayerLevel.get(),val_FrontAttack.get(),val_scanaxis.get(),val_sweeprangestart.get(),val_sweeprangeend.get(),val_sweeprangesteps.get()]
-		# aisettinglist = [val_heroicstrikeragelimit.get(),val_hamstringragelimitprimary.get(),val_hamstringragelimitsecondary.get()]
 		aisettinglist=[val_heroicstrikeragelimit.get(),val_hamstringragelimitprimary.get(),val_hamstringragelimitsecondary.get()]
 		simulationsettinglist=[val_Nreps.get(),val_fightduration.get(),val_executeduration.get(),val_NEnemies.get(),val_MobLevel.get(),val_PlayerLevel.get(),val_FrontAttack.get(),val_scanaxis.get(),val_sweeprangestart.get(),val_sweeprangeend.get(),val_sweeprangesteps.get()]
 		abilitylist=[val_HeroicStrike.get(),val_Cleave.get(),val_Bloodthirst.get(),val_Whirlwind.get(),val_Hamstring.get(),val_Bloodrage.get(),val_Execute.get(),val_Deathwish.get(),val_Reckless.get()]
@@ -757,8 +758,6 @@ if __name__ == '__main__':
 		bufflist = [val_Zandalar.get(),val_Dragonslayer.get(),val_DMT.get(),val_DMF.get(),val_SilithusSand.get(),val_Songflower.get(),val_Kings.get(),val_BoM.get(),val_Trueshot.get(),val_MotW.get(),val_PackLeader.get(),val_GiftOfArthas.get(),val_Chicken.get(),val_Battleshout.get(),val_Sunders.get(),val_Annihilator.get(),val_FaerieFire.get(),val_CoR.get(),val_ZerkerStance.get()]
 		talentlist = [val_OHSpecializationTalent.get(),val_CritDamageTalent.get(),val_ImpHeroicStrike.get(),val_ExecuteTalent.get(),val_AngerManagement.get(),val_Cruelty.get(),val_ImprovedCleave.get(),val_UnbridledWrath.get()]
 		settings = [gearlist,weaponlist,talentlist,consumablelist,bufflist,abilitylist,simulationsettinglist,aisettinglist]
-
-
 
 		fileoptions = [('Text Document', '*.txt'),('All Files', '*.*')]
 		file = asksaveasfile(filetypes = fileoptions, defaultextension = fileoptions)
@@ -871,8 +870,8 @@ if __name__ == '__main__':
 				mindamage=Character.stats_base.weaponmindamageMH+Character.stats_active.AP/14.0*Character.stats_base.weaponspeedMH
 				maxdamage=Character.stats_base.weaponmaxdamageMH+Character.stats_active.AP/14.0*Character.stats_base.weaponspeedMH
 			elif hand == 1:
-				mindamage=(Character.stats_base.weaponmindamageMH+Character.stats_active.AP/14.0*Character.stats_base.weaponspeedMH)*(0.5+0.025*Character.stats_base.OHSpecialization)
-				maxdamage=(Character.stats_base.weaponmaxdamageMH+Character.stats_active.AP/14.0*Character.stats_base.weaponspeedMH)*(0.5+0.025*Character.stats_base.OHSpecialization)
+				mindamage=(Character.stats_base.weaponmindamageOH+Character.stats_active.AP/14.0*Character.stats_base.weaponspeedOH)*(0.5+0.025*Character.stats_base.OHSpecialization)
+				maxdamage=(Character.stats_base.weaponmaxdamageOH+Character.stats_active.AP/14.0*Character.stats_base.weaponspeedOH)*(0.5+0.025*Character.stats_base.OHSpecialization)
 			damage=np.random.uniform(mindamage,maxdamage)
 			return damage
 		def GlanceFactor(hand,Character):
@@ -2186,6 +2185,10 @@ if __name__ == '__main__':
 			UpdateDamage(Character)
 			UpdateCrit(Character)
 			UpdateAP(Character)
+			# print(Character.stats_active.AP)
+			# print(Character.stats_base.hit)
+			# print(Character.stats_active.critMH)
+			# print(Character.stats_active.critOH)
 			# input(Character)
 			return Character,prioritylist
 		def RunFight(Character,prioritylist):
@@ -2231,9 +2234,7 @@ if __name__ == '__main__':
 				# Run the fight
 				totaldamage=RunFight(Character,prioritylist)
 				damagelist[i].append(totaldamage)
-				# if Character.stats_base.nightfall:
-					# NightfallTime.append(Character.stats_active.nightfalltime/simulationsettinglist[1])
-			# print("Time taken to simulate: %3.1f" %(time.time()-start))
+
 			dpslist.append(np.mean(damagelist[i])/simulationsettinglist[1])
 			dpssigma.append(np.std(damagelist[i])/(simulationsettinglist[1]*simulationsettinglist[0]**0.5))
 		if simulationsettinglist[7] == "none":
