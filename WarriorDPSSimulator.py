@@ -1,10 +1,25 @@
-# Version 1.2
+# Version 1.2.1 (work in progress)
 
 # Goal for 1.3: Add many (or all) keywords. Optimize Trinket Usage algorithm. Fix GUI issues. Add pre-popping CD's possibility.
 
 # To-do:
 # - Prevent GUI freezing
-# - Fix 2H DPS
+# - Add more user safeguards
+# - Add proper Slam rotation
+# - Fix GUI Scaling issues
+# - Add T2 battle shout option
+# - Add improved battle shout as option (x/5)
+# - Add Valentines Food option
+# - Add Valentines Gift Box Option
+# - Add Winters Veil buff option
+# - Add Midsummer buff option
+# - Add Diamond Flask turnin buff option
+# - Add Warchiefs Blessing buff option
+# - Add Blasted Lands consumables
+# - Elunes Blessing Buff (10% all stats)
+# - Ensure it's not possible to use a 2H in MH and something in OH
+# - Investigate proc chance dependency on weapon speed for Crusader Enchant
+
 
 # Changes from v1.0:
 # - Massive overhaul from global variables
@@ -33,14 +48,17 @@
 # - Fixed scan axis now properly inputting the correct values for hit, crit, AP and Heroic Strike Cost
 # - Added more user control for wrong input in scan axis
 
+# Changes from v1.2:
+# - Fixed condition on OH auto attacks to no longer be used if no OH weapon is equipped (fixing 2H DPS)
+# - Added warning for disarmed fighting
+# - Fixed Window Naming to 1.2.1 instead of 1.1.1
+
 # Known Bugs: 
 # - Result window not closing when closing GUI
 # - Result window opening many times if closing GUI first
 # - GUI freezing on big calculations
 # - User-safeguards missing. (Wrong type inputs still allowed).
 # - GUI rescaling not possible
-# - 2H weapon DPS not working
-# - Empty simulation not working
 
 # Missing features:
 # - Pre-popping CDs
@@ -1011,6 +1029,9 @@ if __name__ == '__main__':
 		for i in range(len(weaponlist)): # Figure out which keywords apply to which weapon skills
 			Slot = weaponslotlist[i]
 			Gear = weaponlist[i]
+			if Slot == 'MH Weapons' or Slot == '2H+MH Weapons':
+				if Gear == 'None':
+					messagebox.showwarning("User Input Error","Unarmed fighting is not properly implemented, and abilities will be used as if a weapon is equipped.")
 			row = FindRow(data[Slot],Gear)
 			weaponskillkeywords.append(FindSkillKeywords(data[Slot].loc[row,'Weapon Type']))
 			if i == 0 and weaponskillkeywords[0][0] == 'Dagger':
@@ -1315,7 +1336,7 @@ if __name__ == '__main__':
 			elif i[2] == 9:
 				return 9,i[0]
 
-			elif i[2] == 10:
+			elif i[2] == 10 and Character.stats_base.dualwield == 1:
 				return 10,i[0]
 	def InitializeSimulation(scansetting,aisettinglist,simulationsettinglist,abilitylist,consumablelist,bufflist,talentlist,statlist,weaponstatlist,specials,KeywordList,ProcMHFunctionList,ProcOHFunctionList,sweeprange,ATSpeedBuffList,DMGFactorBuffList,APBuffList,StrBuffList,CritBuffsList,EventIDList,ProcWhiteFunctionList):
 		AIsettings = AISettingsClass()
@@ -1410,7 +1431,7 @@ if __name__ == '__main__':
 	filename = resource_path('GearList.xlsx')
 	data = pd.read_excel(filename, sheet_name = None)
 
-	root=Tk(screenName="Warrior DPS Simulator v1p1",className=" Warrior DPS Simulator v1p1")
+	root=Tk(screenName="Warrior DPS Simulator v1p2p1",className=" Warrior DPS Simulator v1p2p1")
 	root.geometry("1000x500")
 
 	myframe=Frame(root,relief=GROOVE,width=975,height=490,bd=1)
@@ -2170,13 +2191,15 @@ if __name__ == '__main__':
 				# Initialize
 				Character,prioritylist=InitializeSimulation(i,aisettinglist,simulationsettinglist,abilitylist,consumablelist,bufflist,talentlist,statlist,weaponstatlist,specials,KeywordList,ProcMHFunctionList,ProcOHFunctionList,sweeprange,ATSpeedBuffList,DMGFactorBuffList,APBuffList,StrBuffList,CritBuffsList,EventIDList,ProcWhiteFunctionList)
 				# if rep==0:
+					# print(Character)
+
 				# 	print(i)
 				# 	print(simulationsettinglist[7])	
 				# 	print(Character.attacktable[1].miss)
 				# 	print(Character.attacktable[1].dodge)
 				# 	print(Character.attacktable[1].crit)
 				# 	print(Character.attacktable[1].hit)
-				# 	input('Continue?')
+					# input('Continue?')
 				# Run the fight
 				totaldamage=RunFight(Character,prioritylist,EventList,EventIDList,EventNameList,BuffNameList)
 
