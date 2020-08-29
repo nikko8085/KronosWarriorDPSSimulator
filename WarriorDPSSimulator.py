@@ -1,6 +1,6 @@
-# Version 1.2.1 (work in progress)
+# Version 1.4 (work in progress)
 
-# Goal for 1.3: Add many (or all) keywords. Optimize Trinket Usage algorithm. Fix GUI issues. Add pre-popping CD's possibility.
+# Goal for 1.4: Add many (or all) keywords. Optimize Trinket Usage algorithm. Fix GUI issues. Add pre-popping CD's possibility.
 
 # To-do:
 # - Prevent GUI freezing
@@ -20,38 +20,53 @@
 # - Ensure it's not possible to use a 2H in MH and something in OH
 # - Investigate proc chance dependency on weapon speed for Crusader Enchant
 
-
 # Changes from v1.0:
-# - Massive overhaul from global variables
-# - Changed heroic strike usage criteria
-# - Implemented user-safeguards. (No wrong values allowed anymore).
-# - Whirlwind can only hit 4 targets now
-# - Maladath now correctly gives +4 Sword Skill
-# - Slayers Crest now a recognized (and functioning) trinket
+# - Added user-safeguards. (No wrong values allowed anymore).
+# - Added Slayers Crest now a recognized (and functioning) trinket
 # - Added OH Crit Stone option
-# - Fixed Unbridled Wrath to have correct proc rate down from 60%
 # - Added Unbridled Wrath to talent options
-# - Load now correctly loads settings for Juju Flurry Usage
-# - Added easy adding of on-hit procs
-# - Fixed Hand of Justice proc now dealing damage
+# - Added easy adding of on-hit procs for later implementation
 # - Added Perditions Blade with 3.9% proc rate
+# - Performance: Massive overhaul from global variables
+# - Changed heroic strike usage criteria
+# - Fixed Whirlwind can only hit 4 targets now
+# - Fixed Maladath now correctly gives +4 Sword Skill
+# - Fixed Unbridled Wrath to have correct proc rate down from 60%
+# - Fixed Load now correctly loads settings for Juju Flurry Usage
+# - Fixed Hand of Justice proc now dealing damage
 
 # Changes from v1.1:
 # - Fixed OH Weapon swinging for its own damage, not MH weapon damage
 
 # Changes from v1.1.1:
-# - Mob armor damage reduction is no longer recalculated on every attack
-# - Massive overhaul to code structure and event ID management, reducing run time to 60%.
-# - Whirlwind can no longer do non-integer damage
-# - Fixed time estimator for completion when sweeping
-# - 2H weapon speed normalization factor is now correctly 3.3
-# - Fixed scan axis now properly inputting the correct values for hit, crit, AP and Heroic Strike Cost
 # - Added more user control for wrong input in scan axis
+# - Performance: Mob armor damage reduction is no longer recalculated on every attack
+# - Performance: Massive overhaul to code structure and event ID management, reducing run time to 60%.
+# - Fixed Whirlwind can no longer do non-integer damage
+# - Fixed time estimator for completion when sweeping
+# - Fixed 2H weapon speed normalization factor is now correctly 3.3
+# - Fixed scan axis now properly inputting the correct values for hit, crit, AP and Heroic Strike Cost
 
 # Changes from v1.2:
-# - Fixed condition on OH auto attacks to no longer be used if no OH weapon is equipped (fixing 2H DPS)
 # - Added warning for disarmed fighting
+# - Fixed condition on OH auto attacks to no longer be used if no OH weapon is equipped (fixing 2H DPS)
 # - Fixed Window Naming to 1.2.1 instead of 1.1.1
+
+# Changes from v1.2.1:
+# - Added option to select starting rage
+# - Added Misplaced Servo Arm weapon keyword
+# - Added Ironfoe weapon keyword
+# - Added user option for delaying Whirlwind to avoid clipping BT with input value check
+# - Changed behaviour of scanning along stat axis - final stats are now set to the value, not added to by buffs/gear
+# - Changed fishing for Crusader, no longer fishing if MH OR OH crusader is procced, from just checking MH proc.
+# - Fixed Glancing blow damage calculation to now follow Kronos Values instead of Classic values.
+# - Fixed spelling mistake of "Repetitions"
+# - Fixed crash on crit axis scan with internal variable not being defined before use
+# - Fixed OH swings now actually proccing crusader
+# - Fixed correctly toggling ability use off (was bugged)
+# - Fixed Ironfoe consuming flurry procs when it doesn't crit
+# - Fixed Ironfoe no longer proccing on Ironfoe procs
+# - Fixed HoJ now proccing on OH swings too
 
 # Known Bugs: 
 # - Result window not closing when closing GUI
@@ -67,7 +82,6 @@
 
 # Missing keywords:
 # - Diamond Flask
-# - Misplaced Servo Arm
 # - Deathbringer
 # - Many More
 
@@ -326,6 +340,8 @@ if __name__ == '__main__':
 		nightfall: float = 0.2 # 20% proc rate
 		unbridledwrath: float = 0.0
 		perditionblade: float = 0.039
+		ironfoe: float = 0.0317
+		misplacedservoarm: float = 0.05
 		def Fill(self,talentlist):
 			self.unbridledwrath: float = 0.08*talentlist[7]
 	class MobStatsClass: # Mob stats
@@ -338,14 +354,26 @@ if __name__ == '__main__':
 			self.level: int = simulationsettinglist[4]
 			self.defence: int = simulationsettinglist[4]*5
 			self.damagereductionfactor: float = 1-np.min([0.75,np.max([0,self.armor / (self.armor + 400 + 85 * simulationsettinglist[5])])])
+			if self.level == 63:
+				self.spellresist: float = 0.17
+			elif self.level == 62:
+				self.spellresist: float = 0.07
+			elif self.level == 61:
+				self.spellresist: float = 0.06
+			elif self.level == 60:
+				self.spellresist: float = 0.05
+			else:
+				print('Warning! Spell resist chance below level 60 is not computed!')
 	class AISettingsClass:
 		heroicstrikeragelimit: int = 30
 		hamstringragelimitprimary: int = 80
 		hamstringragelimitsecondary: int = 35
+		whirlwindoverlaptime: float = 1.5
 		def Fill(self,aisettinglist):
 			self.heroicstrikeragelimit: int = aisettinglist[0]
 			self.hamstringragelimitprimary: int = aisettinglist[1]
 			self.hamstringragelimitsecondary: int = aisettinglist[2]
+			self.whirlwindoverlaptime: int = aisettinglist[3]
 	class BuffEffectClass:
 		BuffsEffectList = [1.3,60,1.03,100,100,1.2,1,1.2,260,20]
 		# flurry: float = 1.3
@@ -381,7 +409,6 @@ if __name__ == '__main__':
 		APBuffs = []
 		StrBuffs = []
 		CritBuffs = []
-
 	# Gui functionality #
 	def resource_path(relative_path):
 		try: #""" Get absolute path to resource, works for dev and for PyInstaller """
@@ -501,6 +528,9 @@ if __name__ == '__main__':
 		if simulationsettinglist[7]=="heroic" and (simulationsettinglist[8]>100 or simulationsettinglist[9]>100 or simulationsettinglist[8]<15-talentlist[2] or simulationsettinglist[9]<15-talentlist[2] or simulationsettinglist[8]>=simulationsettinglist[9]):
 			messagebox.showwarning("User input error","Heroic Strike Used At Rage Scan Range must start and end between minimum cost and 100. Simulation aborted.")
 			return 1
+		if simulationsettinglist[11]<0 or simulationsettinglist[11]>100:
+			messagebox.showwarning("User input error","Starting rage must be between 0 and 100, and an integer. Simulation aborted.")
+			return 1
 		if isinstance(aisettinglist[0],int)==0:
 			messagebox.showwarning("User input error","Heroic Strike Rage Limit must be a whole number. Simulation aborted.")
 			return 1 # Heroic Strike Rage Limit
@@ -520,6 +550,9 @@ if __name__ == '__main__':
 			if aisettinglist[2]>100 or aisettinglist[2]<10:
 				messagebox.showwarning("User input error","The lower limit for when to use Hamstring when Crusader proc from the MH is not up must be between 10 and 100. Simulation aborted.")
 				return 1
+		if aisettinglist[3]>1.5 or aisettinglist[3]<0:
+				messagebox.showwarning("User input error","The lower limit for delaying WW into BT is 0 (use immediately if ready), upper limit 1.5 (don't use if it clips into BT). Simulation aborted.")
+				return 1
 		if consumablelist[10]==1 and consumablelist[4]==1: # OH Crit stone and OH Stone
 			messagebox.showwarning("User input error","Offhand cannot have both a crit and damage stone applied. Simulation aborted.")
 			return 1
@@ -533,7 +566,6 @@ if __name__ == '__main__':
 			messagebox.showwarning("User input error","Recklessness use requires Berzerker Stance active. Simulation aborted.")
 			return 1
 		return 0
-
 	## Attack calculations ##
 	def GenerateAttackTable(stats,mobstats,basestats):
 		atmy = AttackTableClass()
@@ -637,9 +669,7 @@ if __name__ == '__main__':
 			skilldiff = Character.mobstats.defence - Character.stats_base.weaponskillMH
 		elif hand == 1:
 			skilldiff = Character.mobstats.defence - Character.stats_base.weaponskillOH
-		glancinglow = np.min([1.3-0.05*skilldiff,0.91])
-		glancinghigh = np.max([0.2,np.min([1.2-0.03*skilldiff,0.99])])
-		glancingfactor = np.random.uniform(glancinglow,glancinghigh)
+		glancingfactor = 1.0-5.0*(2.0**(float(skilldiff)/5)-1)/100.0
 		return glancingfactor
 	def RageFromAttack(damage):
 		gain = np.round(0.03252*damage)
@@ -660,7 +690,6 @@ if __name__ == '__main__':
 			Character.buffs_duration.BuffsDurationList[3] = 15
 			UpdateAP(Character)
 		return 0
-			# print('Proc from Crusader MH')
 	def CrusaderOHFunc(Character):
 		if np.random.uniform()<=Character.procrate.crusader:
 			Character.buffs_active.BuffsActiveList[4] = 1
@@ -671,9 +700,57 @@ if __name__ == '__main__':
 		if np.random.uniform()<=Character.procrate.unbridledwrath:
 			Character.stats_active.rage=np.min([100,Character.stats_active.rage+1])
 		return 0
-	def HandOfJusticeFunc(Character):
+	def HandOfJusticeMHFunc(Character):
 		if np.random.uniform()<Character.procrate.handofjustice:
 			return MHauto(Character)
+		return 0
+	def HandOfJusticeOHFunc(Character):
+		if np.random.uniform()<Character.procrate.handofjustice:
+			print("HoJ OH Procced")
+			return OHauto(Character)
+		return 0
+	def IronfoeFunc(Character):
+		if np.random.uniform()<Character.procrate.ironfoe:
+			dmg = IronfoeSwing(Character)
+			return dmg
+		return 0
+	def IronfoeSwing(Character):
+		totaldamage = 0
+		#if outcome == 0: # miss, nothing happens
+		#elif outcome == 1: # dodge, nothing happens
+		for i in range(2): # 2 swings
+			outcome=AttackOutcome(Character.attacktable[1])
+			if outcome == 2: # glance
+				totaldamage+=np.floor(AttackDamage(0,Character)*Character.mobstats.damagereductionfactor*Character.stats_active.damageinc*GlanceFactor(0,Character))+8*Character.stats_base.giftofarthas
+				Character.stats_active.rage=np.min([Character.stats_active.rage+RageFromAttack(totaldamage),100])
+				for f in Character.AttackProcListMH:
+					if f!=IronfoeFunc:
+						totaldamage+=f(Character)
+				for f in Character.AttackProcListWhite:
+					totaldamage+=f(Character)
+			elif outcome == 3: # crit
+				totaldamage+=np.floor(AttackDamage(0,Character)*Character.mobstats.damagereductionfactor*Character.stats_active.damageinc*Character.stats_base.CritDamageBonus)+8*Character.stats_base.giftofarthas
+				Character.stats_active.rage=np.min([Character.stats_active.rage+RageFromAttack(totaldamage),100])
+				FlurryProc(Character)
+				for f in Character.AttackProcListMH:
+					if f!=IronfoeFunc:
+						totaldamage+=f(Character)
+				for f in Character.AttackProcListWhite:
+					totaldamage+=f(Character)
+			elif outcome == 4: # hit
+				totaldamage+=np.floor(AttackDamage(0,Character)*Character.mobstats.damagereductionfactor*Character.stats_active.damageinc)+8*Character.stats_base.giftofarthas
+				Character.stats_active.rage=np.min([Character.stats_active.rage+RageFromAttack(totaldamage),100])
+				for f in Character.AttackProcListMH:
+					if f!=IronfoeFunc:
+						totaldamage+=f(Character)
+				for f in Character.AttackProcListWhite:
+					totaldamage+=f(Character)
+		return totaldamage
+	def MisplacedServoArmFunc(Character):
+		if np.random.uniform()<=Character.procrate.misplacedservoarm: # it procs
+			if np.random.uniform()<=Character.mobstats.spellresist: # It resists
+				return 0
+			return np.random.randint(100,151)
 		return 0
 	def NightfallFunc(Character):
 		if np.random.uniform()<=Character.procrate.nightfall:
@@ -853,12 +930,13 @@ if __name__ == '__main__':
 			totaldamage=MHauto(Character)
 			# print('Used MH Auto attack')
 		return totaldamage
-	def MHauto(Character):
+	def MHauto(Character,returncrit = False):
 		totaldamage = 0
 		Character.cooldown_active.CooldownList[9] = Character.stats_active.weaponspeedMH # reset swing timer
 		outcome=AttackOutcome(Character.attacktable[1])
 		#if outcome == 0: # miss, nothing happens
 		#elif outcome == 1: # dodge, nothing happens
+
 		if outcome == 2: # glance
 			totaldamage+=np.floor(AttackDamage(0,Character)*Character.mobstats.damagereductionfactor*Character.stats_active.damageinc*GlanceFactor(0,Character))+8*Character.stats_base.giftofarthas
 			Character.stats_active.rage=np.min([Character.stats_active.rage+RageFromAttack(totaldamage),100])
@@ -881,6 +959,11 @@ if __name__ == '__main__':
 				totaldamage+=f(Character)
 			for f in Character.AttackProcListWhite:
 				totaldamage+=f(Character)
+		if returncrit:
+			if outcome == 3:
+				return totaldamage,1
+			else:
+				return totaldamage,0
 		return totaldamage
 	def OHauto(Character):
 		totaldamage=0
@@ -1086,7 +1169,7 @@ if __name__ == '__main__':
 				weaponstatlist[i].append(0)
 		return statlist,weaponstatlist,specials
 	def KeywordParser(keywordlist):
-		KnownKeywords = ['SpeedEnchant','Kiss of the Spider','Slayers Crest','Jom Gabbar','Hand of Justice','DaggerMH','Nightfall','Crusader MH','Crusader OH','Perditions Blade','Perditions Blade OH','2H']
+		KnownKeywords = ['SpeedEnchant','Kiss of the Spider','Slayers Crest','Jom Gabbar','Hand of Justice','DaggerMH','Nightfall','Crusader MH','Crusader OH','Perditions Blade','Perditions Blade OH','2H','Ironfoe','Misplaced Servo Arm','Misplaced Servo Arm OH']
 		ProcMHFunctionList=[]
 		ProcOHFunctionList=[]
 		keywordlistout=[0]*len(KnownKeywords)
@@ -1100,7 +1183,8 @@ if __name__ == '__main__':
 			keywordlistout[3]=1
 		if 'Hand of Justice' in keywordlist:
 			keywordlistout[4]=1
-			ProcMHFunctionList.append(HandOfJusticeFunc)
+			ProcMHFunctionList.append(HandOfJusticeMHFunc)
+			ProcOHFunctionList.append(HandOfJusticeOHFunc)
 		if 'DaggerMH' in keywordlist:
 			keywordlistout[5]=1
 		if 'Nightfall' in keywordlist:
@@ -1120,6 +1204,15 @@ if __name__ == '__main__':
 			ProcOHFunctionList.append(PerditionBladeFunc)
 		if '2H' in keywordlist:
 			keywordlistout[11]=1
+		if 'Ironfoe' in keywordlist:
+			keywordlistout[12]=1
+			ProcMHFunctionList.append(IronfoeFunc)
+		if 'Misplaced Servo Arm' in keywordlist:
+			keywordlistout[13]=1
+			ProcMHFunctionList.append(MisplacedServoArmFunc)
+		if 'Misplaced Servo Arm OH' in keywordlist:
+			keywordlistout[14]=1
+			ProcOHFunctionList.append(MisplacedServoArmFunc)
 		boollist=[i in KnownKeywords for i in keywordlist]
 		unknownkeywordlist=''
 		if all(boollist) == 0:
@@ -1272,37 +1365,38 @@ if __name__ == '__main__':
 				elif RemainingTime<=Character.buffs_maxduration.jujuflurry: # Fight duration is less than uptime
 					return 7,i[0] # Time to the event and which event should be used
 			
-			elif i[2] == 8:
+			elif i[2] == 8 and Character.stats_base.bloodrage:
 				if Character.stats_active.rage <= 20: # Cooldown can refresh allowing for an extra pop
 					return 8,i[0] # Time to the event and which event should be used
 
-			elif i[2] == 3:
+			elif i[2] == 3 and Character.stats_base.reckless:
 				if RemainingTime >= Character.cooldown_max.reckless+Character.buffs_maxduration.reckless: # Cooldown can refresh allowing for an extra pop
 					return 3,i[0] # Time to the event and which event should be used
 				elif RemainingTime<=Character.buffs_maxduration.reckless: # Fight duration is less than uptime
 					return 3,i[0] # Time to the event and which event should be used
 
-			elif i[2] == 2:
+			elif i[2] == 2 and Character.stats_base.deathwish:
 				if RemainingTime >= Character.cooldown_max.deathwish+Character.buffs_maxduration.deathwish and Character.stats_active.rage >= 10: # Cooldown can refresh allowing for an extra pop
 					return 2,i[0] # Time to the event and which event should be used
 				elif RemainingTime<=Character.buffs_maxduration.deathwish and Character.stats_active.rage >= 10: # Fight duration is less than uptime
 					return 2,i[0] # Time to the event and which event should be used
 
-			elif i[2] == 0:
+			elif i[2] == 0 and Character.stats_base.bloodthirst:
 				if Character.stats_active.rage >= 30:
 					if RemainingTime>Character.executeduration: # Not yet in execute phase
 						return 0,i[0]
 					elif Character.stats_active.AP >= 2000: # Use Bloodthirst if AP>=2000
 						return 0,i[0]
-			elif i[2] == 5:
+
+			elif i[2] == 5 and Character.stats_base.execute:
 				if Character.stats_active.rage >= Character.stats_base.ExecuteAbilityCost and RemainingTime<=Character.executeduration:
 					return 5,i[0]
 
-			elif i[2] == 1:
-				if Character.stats_active.rage >= 25:
+			elif i[2] == 1 and Character.stats_base.whirlwind: # Whirlwind
+				if Character.stats_active.rage >= 25 and Character.cooldown_active.CooldownList[1]+Character.AIsettings.whirlwindoverlaptime<Character.cooldown_active.CooldownList[0]:
 					return 1,i[0]
 
-			elif i[2] == 4:
+			elif i[2] == 4 and Character.stats_base.hamstring:
 				bloodthirstcheck = 0
 				whirlwindcheck = 0
 				if Character.stats_active.rage >= Character.AIsettings.hamstringragelimitprimary: # Condition 1 for using Hamstring
@@ -1319,7 +1413,7 @@ if __name__ == '__main__':
 					if bloodthirstcheck and whirlwindcheck:
 						return 4,i[0]
 				elif Character.stats_base.crusaderMH: # If crusader is on the MH, check for secondary hamstring use condition
-					if Character.stats_active.rage >= Character.AIsettings.hamstringragelimitsecondary and Character.buffs_active.BuffsActiveList[3] == 0:
+					if Character.stats_active.rage >= Character.AIsettings.hamstringragelimitsecondary and (Character.buffs_active.BuffsActiveList[3]==0 and Character.buffs_active.BuffsActiveList[4] == 0): # Have the rage and no crusader is up
 						if Character.stats_base.bloodthirst:
 							if Character.cooldown_active.CooldownList[0]>=Character.cooldown_max.gcd+i[0]: # Check for overlap with Bloodthirst
 								bloodthirstcheck = 1
@@ -1351,10 +1445,10 @@ if __name__ == '__main__':
 		if simulationsettinglist[7] == "hit":
 			basestats.hit = sweeprange[scansetting]
 		elif simulationsettinglist[7] == "AP":
-			basestats.AP = sweeprange[scansetting] + 222*bufflist[7] + 40*consumablelist[0] + 140*bufflist[1] + 290*bufflist[13] + 200*bufflist[2] + 100*bufflist[8]
+			basestats.AP = sweeprange[scansetting] #+ 222*bufflist[7] + 40*consumablelist[0] + 140*bufflist[1] + 290*bufflist[13] + 200*bufflist[2] + 100*bufflist[8]
 		elif simulationsettinglist[7] == "crit":
-			basestats.critMH = sweeprange[scansetting] + 0.03*bufflist[18] + 0.02*consumablelist[2] + 0.05*bufflist[1] + 0.05*bufflist[5] + 0.03*bufflist[10] + 0.01*talentlist[5] + ((agility + 25*consumablelist[2] + 15*bufflist[5]+16*bufflist[9])*(1+0.1*bufflist[6])*(1+0.15*bufflist[0]))*1.0/2000 + 0.02*consumablelist[5]
-			basestats.critOH = sweeprange[scansetting] + 0.03*bufflist[18] + 0.02*consumablelist[2] + 0.05*bufflist[1] + 0.05*bufflist[5] + 0.03*bufflist[10] + 0.01*talentlist[5] + ((agility + 25*consumablelist[2] + 15*bufflist[5]+16*bufflist[9])*(1+0.1*bufflist[6])*(1+0.15*bufflist[0]))*1.0/2000 + 0.02*consumablelist[10]
+			basestats.critMH = sweeprange[scansetting] #+ 0.03*bufflist[18] + 0.02*consumablelist[2] + 0.05*bufflist[1] + 0.05*bufflist[5] + 0.03*bufflist[10] + 0.01*talentlist[5] + ((agility + 25*consumablelist[2] + 15*bufflist[5]+16*bufflist[9])*(1+0.1*bufflist[6])*(1+0.15*bufflist[0]))*1.0/2000 + 0.02*consumablelist[5]
+			basestats.critOH = sweeprange[scansetting] #+ 0.03*bufflist[18] + 0.02*consumablelist[2] + 0.05*bufflist[1] + 0.05*bufflist[5] + 0.03*bufflist[10] + 0.01*talentlist[5] + ((agility + 25*consumablelist[2] + 15*bufflist[5]+16*bufflist[9])*(1+0.1*bufflist[6])*(1+0.15*bufflist[0]))*1.0/2000 + 0.02*consumablelist[10]
 		elif simulationsettinglist[7] == "heroic":
 			AIsettings.heroicstrikeragelimit = sweeprange[scansetting]
 		elif simulationsettinglist[7] != "none":
@@ -1402,12 +1496,13 @@ if __name__ == '__main__':
 		UpdateCrit(Character)
 		UpdateAP(Character)
 
+		Character.stats_active.rage=simulationsettinglist[11]
+
 		return Character,prioritylist
 	def RunFight(Character,prioritylist,EventList,EventIDList,EventNameList,BuffNameList):
 		totaldamage = 0.0
 		totalduration = 0.0
 		while totalduration<=Character.fightduration:
-
 			eventid,t=FindNextEvent(Character,prioritylist,EventIDList,totalduration) # Identify which event is next according to cooldown time and prio.
 			Character.buffs_duration.PassTime(t)
 			Character.buffs_active.Update(Character)
@@ -1431,7 +1526,7 @@ if __name__ == '__main__':
 	filename = resource_path('GearList.xlsx')
 	data = pd.read_excel(filename, sheet_name = None)
 
-	root=Tk(screenName="Warrior DPS Simulator v1p2p1",className=" Warrior DPS Simulator v1p2p1")
+	root=Tk(screenName="Warrior DPS Simulator v1p3",className=" Warrior DPS Simulator v1p3")
 	root.geometry("1000x500")
 
 	myframe=Frame(root,relief=GROOVE,width=975,height=490,bd=1)
@@ -1658,7 +1753,7 @@ if __name__ == '__main__':
 
 	val_Nreps = IntVar()
 	val_Nreps.set(100)
-	label_Nreps = Label(frame,text = "Repititions of the simulation").grid(row=11,column=4)
+	label_Nreps = Label(frame,text = "Repetitions of the simulation").grid(row=11,column=4)
 	entry_Nreps = Entry(frame,textvar=val_Nreps,width=3).grid(row=11,column=5)
 	val_fightduration = IntVar()
 	val_fightduration.set(60)
@@ -1720,6 +1815,16 @@ if __name__ == '__main__':
 	val_hamstringragelimitsecondary.set(35)
 	label_hamstringragelimitsecondary = Label(frame,text = "Without Crusader, use Hamstring at").grid(row=25,column=4)
 	entry_hamstringragelimitsecondary = Entry(frame,textvar=val_hamstringragelimitsecondary,width=3).grid(row=25,column=5)
+
+	val_whirlwindoverlaptime = DoubleVar()
+	val_whirlwindoverlaptime.set(1.5)
+	label_whirlwindoverlaptime = Label(frame,text = "Delay WW for BT [s]").grid(row=26,column=4)
+	entry_whirlwindoverlaptime = Entry(frame,textvar=val_whirlwindoverlaptime,width=3).grid(row=26,column=5)
+
+	val_startingrage = IntVar()
+	val_startingrage.set(0)
+	label_startingrage = Label(frame,text = "Starting Rage").grid(row=27,column=4)
+	entry_startingrage = Entry(frame,textvar=val_startingrage,width=3).grid(row=27,column=5)
 
 	## Gear List ##
 	SlotItems=[]
@@ -2102,16 +2207,18 @@ if __name__ == '__main__':
 		SetSetting(val_sweeprangestart,simulationsettinglist[8])
 		SetSetting(val_sweeprangeend,simulationsettinglist[9])
 		SetSetting(val_sweeprangesteps,simulationsettinglist[10])
+		SetSetting(val_startingrage,simulationsettinglist[11])
 
 		SetSetting(val_heroicstrikeragelimit,aisettinglist[0])
 		SetSetting(val_hamstringragelimitprimary,aisettinglist[1])
 		SetSetting(val_hamstringragelimitsecondary,aisettinglist[2])
+		SetSetting(val_whirlwindoverlaptime,aisettinglist[3])
 	button_load = Button(frame,text="Load", width=18, command=LoadSettings).grid(row=0,column=0)
 	def SaveSettings():
 		gearlist = [val_Race.get(),val_Head.get(),val_Neck.get(),val_Shoulders.get(),val_Cloak.get(),val_Chest.get(),val_Wrist.get(),val_Gloves.get(),val_Belt.get(),val_Legs.get(),val_Boots.get(),val_Ring1.get(),val_Ring2.get(),val_Trinket1.get(),val_Trinket2.get(),val_Ranged.get(),val_HeadEnchant.get(),val_LegEnchant.get(),val_ShouldersEnchant.get(),val_MHWeaponEnchant.get(),val_OHWeaponEnchant.get(),val_CloakEnchant.get(),val_ChestEnchant.get(),val_WristEnchant.get(),val_GlovesEnchant.get(),val_BootsEnchant.get()]
 		weaponlist = [val_MHWeapon.get(),val_OHWeapon.get()]
-		aisettinglist=[val_heroicstrikeragelimit.get(),val_hamstringragelimitprimary.get(),val_hamstringragelimitsecondary.get()]
-		simulationsettinglist=[val_Nreps.get(),val_fightduration.get(),val_executeduration.get(),val_NEnemies.get(),val_MobLevel.get(),val_PlayerLevel.get(),val_FrontAttack.get(),val_scanaxis.get(),val_sweeprangestart.get(),val_sweeprangeend.get(),val_sweeprangesteps.get()]
+		aisettinglist=[val_heroicstrikeragelimit.get(),val_hamstringragelimitprimary.get(),val_hamstringragelimitsecondary.get(),val_whirlwindoverlaptime.get()]
+		simulationsettinglist=[val_Nreps.get(),val_fightduration.get(),val_executeduration.get(),val_NEnemies.get(),val_MobLevel.get(),val_PlayerLevel.get(),val_FrontAttack.get(),val_scanaxis.get(),val_sweeprangestart.get(),val_sweeprangeend.get(),val_sweeprangesteps.get(),val_startingrage.get()]
 		abilitylist=[val_HeroicStrike.get(),val_Cleave.get(),val_Bloodthirst.get(),val_Whirlwind.get(),val_Hamstring.get(),val_Bloodrage.get(),val_Execute.get(),val_Deathwish.get(),val_Reckless.get()]
 		consumablelist=[val_JujuMight.get(),val_JujuPower.get(),val_Mongoose.get(),val_Dumpling.get(),val_OHStone.get(),val_MHCritStone.get(),val_MHStone.get(),val_UseSapper.get(),val_UseRagePot.get(),val_UseJujuFlurry.get(),val_OHCritStone.get()]
 		bufflist = [val_Zandalar.get(),val_Dragonslayer.get(),val_DMT.get(),val_DMF.get(),val_SilithusSand.get(),val_Songflower.get(),val_Kings.get(),val_BoM.get(),val_Trueshot.get(),val_MotW.get(),val_PackLeader.get(),val_GiftOfArthas.get(),val_Chicken.get(),val_Battleshout.get(),val_Sunders.get(),val_Annihilator.get(),val_FaerieFire.get(),val_CoR.get(),val_ZerkerStance.get()]
@@ -2134,8 +2241,8 @@ if __name__ == '__main__':
 			weaponlist = [val_MHWeapon.get(),val_OHWeapon.get()]
 		else:
 			weaponlist = [val_MHWeapon.get()]
-		aisettinglist=[val_heroicstrikeragelimit.get(),val_hamstringragelimitprimary.get(),val_hamstringragelimitsecondary.get()]
-		simulationsettinglist=[val_Nreps.get(),val_fightduration.get(),val_executeduration.get(),val_NEnemies.get(),val_MobLevel.get(),val_PlayerLevel.get(),val_FrontAttack.get(),val_scanaxis.get(),val_sweeprangestart.get(),val_sweeprangeend.get(),val_sweeprangesteps.get()]
+		aisettinglist=[val_heroicstrikeragelimit.get(),val_hamstringragelimitprimary.get(),val_hamstringragelimitsecondary.get(),val_whirlwindoverlaptime.get()]
+		simulationsettinglist=[val_Nreps.get(),val_fightduration.get(),val_executeduration.get(),val_NEnemies.get(),val_MobLevel.get(),val_PlayerLevel.get(),val_FrontAttack.get(),val_scanaxis.get(),val_sweeprangestart.get(),val_sweeprangeend.get(),val_sweeprangesteps.get(),val_startingrage.get()]
 		abilitylist=[val_HeroicStrike.get(),val_Cleave.get(),val_Bloodthirst.get(),val_Whirlwind.get(),val_Hamstring.get(),val_Bloodrage.get(),val_Execute.get(),val_Deathwish.get(),val_Reckless.get()]
 		consumablelist=[val_JujuMight.get(),val_JujuPower.get(),val_Mongoose.get(),val_Dumpling.get(),val_OHStone.get(),val_MHCritStone.get(),val_MHStone.get(),val_UseSapper.get(),val_UseRagePot.get(),val_UseJujuFlurry.get(),val_OHCritStone.get()]
 		bufflist = [val_Zandalar.get(),val_Dragonslayer.get(),val_DMT.get(),val_DMF.get(),val_SilithusSand.get(),val_Songflower.get(),val_Kings.get(),val_BoM.get(),val_Trueshot.get(),val_MotW.get(),val_PackLeader.get(),val_GiftOfArthas.get(),val_Chicken.get(),val_Battleshout.get(),val_Sunders.get(),val_Annihilator.get(),val_FaerieFire.get(),val_CoR.get(),val_ZerkerStance.get()]
@@ -2201,6 +2308,7 @@ if __name__ == '__main__':
 				# 	print(Character.attacktable[1].hit)
 					# input('Continue?')
 				# Run the fight
+				
 				totaldamage=RunFight(Character,prioritylist,EventList,EventIDList,EventNameList,BuffNameList)
 
 				damagelist[i].append(totaldamage)
